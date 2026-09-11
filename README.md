@@ -46,4 +46,4 @@ Data preprocessing is available in [preprocessing/weirnet_preprocess.ipynb](prep
 
 ## License
 
-[MIT](LICENSE)
+[Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). See [LICENSE](LICENSE).
