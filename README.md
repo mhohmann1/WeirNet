@@ -23,7 +23,14 @@ For another location, set `--data_path`, `--pc_dir`, and `--stl_dir` when runnin
 
 ## Setup
 
-Use a Python environment with PyTorch, PyTorch Geometric, NumPy, pandas, trimesh, tqdm, TensorBoard, and Matplotlib. Tabular regression also requires scikit-learn, XGBoost, LightGBM, and SHAP.
+Create and activate the Conda environment from the repository root:
+
+```bash
+conda env create -f environment.yml
+conda activate weirnet_env
+```
+
+The [environment.yml](environment.yml) file includes Python 3.11, PyTorch with CUDA 12.1, and the dependencies for training and preprocessing.
 
 ## Training
 
