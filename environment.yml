@@ -1,0 +1,25 @@
+name: weirnet_env
+
+channels:
+  - pytorch
+  - nvidia
+  - pyg
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  - pytorch
+  - pytorch-cuda=12.1
+  - pyg
+  - numpy
+  - pandas
+  - matplotlib
+  - trimesh
+  - tqdm
+  - tensorboard
+  - scikit-learn
+  - xgboost
+  - lightgbm
+  - shap
+  - jupyter
+  - ipykernel
