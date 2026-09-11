@@ -47,7 +47,7 @@ python trainGNN.py --model GNN --epochs 100 --num_workers 4
 python train_regressors.py
 ```
 
-Neural model checkpoints are saved under `saved_model/`. Add `--resume` to continue training, or use `--help` to see available options. The included Slurm scripts provide examples for training on multiple GPUs; adjust their cluster settings before use.
+Neural model checkpoints are saved under `saved_model/`. Add `--resume` to continue training, or use `--help` to see available options. The included Slurm scripts `slurm/` provide examples for training on multiple GPUs. Please adjust their cluster settings before use.
 
 Data preprocessing is available in [preprocessing/weirnet_preprocess.ipynb](preprocessing/weirnet_preprocess.ipynb).
 

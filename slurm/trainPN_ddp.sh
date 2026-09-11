@@ -7,7 +7,7 @@
 #SBATCH --partition=small_gpu
 #SBATCH --time=23:45:00
 #SBATCH --mail-type=FAIL
-#SBATCH --mail-user=michael.hohmann@hsu-hh.de
+#SBATCH --mail-user=firstname.lastname@email.com
 #SBATCH --output=slurmjob%j.log
 
 module purge
