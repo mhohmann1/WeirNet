@@ -11,11 +11,10 @@ plt.rcParams.update({
     "mathtext.bf": "Times New Roman:bold",
 })
 
-dataset = np.load("./Data/PKW_Efficiency_Dataset/combined_data.npz", allow_pickle=True)
+dataset = np.load("plot_generator/data/combined_data.npz", allow_pickle=True)
 
 columns = dataset["columns"]
 data = dataset["data"]
-
 
 def _decode_column_name(name):
     if isinstance(name, bytes):
@@ -160,12 +159,8 @@ def save_correlation_heatmap(
     ax.set_xticklabels(heatmap_labels)
     ax.set_yticklabels(heatmap_labels)
     ax.tick_params(axis="x", labelrotation=90)
-
-    # Reduce label size for dense matrices.
     label_size = 12 if n <= 30 else 8
     ax.tick_params(axis="both", labelsize=label_size)
-
-    # Annotate correlation values.
     annot_size = 10 if n <= 10 else (7 if n <= 20 else 5)
     for i in range(n):
         for j in range(n):
@@ -218,7 +213,7 @@ def save_features_vs_cd_plots(output_path, exclude_columns=None, feature_on_x=Fa
         elif "B" == name:
             name = r"$B$ [mm]"
         elif "Alpha_deg" == name:
-	        name = r"$\alpha$ [°]"
+            name = r"$\alpha$ [°]"
         elif "Ts_stern" == name:
             name = r"$T_{s,2}$ [mm]"
         elif "Ts_dach" == name:
@@ -240,49 +235,19 @@ def save_features_vs_cd_plots(output_path, exclude_columns=None, feature_on_x=Fa
     fig.savefig(output_path, format="pdf")
 
 
-n_features = data.shape[1]
-ncols = 3
-nrows = math.ceil(n_features / ncols)
-
-label_size = 14
-tick_size = 12
-
-fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(4 * ncols, 3 * nrows))
-axes = np.ravel(axes)
-
-for i in range(n_features):
-    col_name = _decode_column_name(columns[i])
-    axes[i].hist(data[:, i], bins=25, color="#4C78A8", edgecolor="white")
-    axes[i].set_title(col_name, fontsize=label_size)
-    axes[i].tick_params(axis="both", labelsize=tick_size)
-    label_subplot(axes[i], i)
-
-for i in range(n_features, len(axes)):
-    axes[i].axis("off")
-
-plt.tight_layout()
-plt.savefig("feature_histograms.pdf", format="pdf")
-
 save_continuous_histograms(
     ["C_d", "Q", "Alpha_deg"],
-    "histograms.pdf",
+    "Fig_15.pdf",
 )
 
 save_correlation_heatmap(
-    "correlation_heatmap.pdf",
+    "Fig_11.pdf",
     exclude_columns={'Modell', 'Pressure', 'h_O', 'h_t', 'H_t', 'B_b' ,'N_B_i', 'N_B_o', 'W_i_u', 'W_i_d', 'Cycles', 'Alpha_rad', 'W' , 'Ht_P', 'T_s', 'L', 'W_u', 'P'},
     triangle="lower",
 )
 
 save_features_vs_cd_plots(
-    "features_vs_c_d.pdf",
-    exclude_columns={'Modell', 'Pressure', 'h_O', 'h_t', 'H_t', 'B_b' ,'N_B_i', 'N_B_o', 'W_i_u', 'W_i_d', 'Cycles', 'Alpha_rad', 'W' , 'Ht_P', 'T_s', 'L', 'W_u', 'P'},
-)
-
-save_features_vs_cd_plots(
-    "features_vs_c_d_xy.pdf",
+    "Fig_12.pdf",
     exclude_columns={'Modell', 'Pressure', 'h_O', 'h_t', 'H_t', 'B_b' ,'N_B_i', 'N_B_o', 'W_i_u', 'W_i_d', 'Cycles', 'Alpha_rad', 'W' , 'Ht_P', 'T_s', 'L', 'W_u', 'P'},
     feature_on_x=True,
 )
-
-plt.show()

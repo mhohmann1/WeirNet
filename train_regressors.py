@@ -3,6 +3,7 @@ import json
 import math
 import os
 
+import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -176,13 +177,26 @@ def _format_feature_label(name):
     return name
 
 
-def save_shap_summary_plot(shap_values, X, output_dir, model_name, train_fraction, method):
+def save_shap_summary_grid(plots, output_dir, train_fraction):
+    if not plots:
+        return
     frac_tag = int(round(train_fraction * 100))
-    plot_path = os.path.join(
-        output_dir, f"shap_summary_{model_name}_train{frac_tag:03d}.png"
+    plot_path = os.path.join(output_dir, f"shap_summary_train{frac_tag:03d}_grid.pdf")
+
+    # Rank features by their mean importance across models for a common order.
+    importance = np.mean(
+        [np.mean(np.abs(item["shap_values"]), axis=0) for item in plots], axis=0
     )
-    shap_summary_X = X.copy()
-    shap_summary_X.columns = [_format_feature_label(c) for c in shap_summary_X.columns]
+    feature_order = np.argsort(-importance, kind="stable")[:20]
+    limit = max(
+        float(np.max(np.abs(np.asarray(item["shap_values"])[:, feature_order])))
+        for item in plots
+    )
+    limit = 1.05 * limit if limit > 0 else 1.0
+    ncols = min(2, len(plots))
+    nrows = math.ceil(len(plots) / ncols)
+    cmap = shap.plots.colors.red_blue
+
     with plt.rc_context(
         {
             "font.size": 12,
@@ -192,13 +206,57 @@ def save_shap_summary_plot(shap_values, X, output_dir, model_name, train_fractio
             "ytick.labelsize": 11,
         }
     ):
-        shap.summary_plot(shap_values, shap_summary_X, show=False)
-        plt.title(f"{model_name}")
-        plt.tight_layout()
-        plt.savefig(plot_path, dpi=300, bbox_inches="tight")
-        plt.close()
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=(7 * ncols, (0.4 * len(feature_order) + 2) * nrows),
+            squeeze=False,
+        )
+        axes = axes.ravel()
+        for index, (ax, item) in enumerate(zip(axes, plots)):
+            features = item["X"].iloc[:, feature_order].copy()
+            features.columns = [_format_feature_label(c) for c in features.columns]
+            plt.sca(ax)
+            shap.summary_plot(
+                np.asarray(item["shap_values"])[:, feature_order], features,
+                show=False, sort=False, color_bar=False, plot_size=None,
+                max_display=len(feature_order), cmap=cmap,
+            )
+            ax.set_title(item["label"])
+            ax.set_xlim(-limit, limit)
 
-    print(f"Saved SHAP summary plot ({model_name}, train {frac_tag}% | method={method})")
+            label = ""
+            number = index + 1
+            while number:
+                number, remainder = divmod(number - 1, 26)
+                label = chr(ord("a") + remainder) + label
+            ax.annotate(
+                f"({label})", xy=(0, 0.5),
+                xycoords=("axes fraction", ax.title),
+                ha="left", va="center", fontsize=14,
+                annotation_clip=False,
+            )
+
+        for ax in axes[len(plots):]:
+            ax.axis("off")
+        fig.tight_layout(rect=(0, 0, 0.91, 1), h_pad=3, w_pad=3)
+        colorbar_ax = fig.add_axes([0.93, 0.2, 0.015, 0.6])
+        colorbar = fig.colorbar(
+            plt.cm.ScalarMappable(norm=plt.Normalize(0, 1), cmap=cmap),
+            cax=colorbar_ax, ticks=[0, 1],
+        )
+        colorbar.set_ticklabels(["Low", "High"])
+        colorbar.set_label("Feature value")
+        colorbar.ax.tick_params(length=0)
+        colorbar.outline.set_visible(False)
+
+        # Keep SHAP points and the shared colorbar as vectors for all sample sizes.
+        for artist in fig.findobj():
+            if artist.get_rasterized():
+                artist.set_rasterized(False)
+        fig.savefig(plot_path, format="pdf", bbox_inches="tight")
+        plt.close(fig)
+
+    print(f"Saved SHAP summary grid: {plot_path}")
 
 
 def save_scatter_grid(plots, out_path, title=None):
@@ -229,7 +287,7 @@ def save_scatter_grid(plots, out_path, title=None):
     if title:
         fig.suptitle(title, fontsize=title_size)
     fig.tight_layout()
-    fig.savefig(out_path, dpi=200)
+    fig.savefig(out_path, format="pdf")
     plt.close(fig)
 
 
@@ -513,7 +571,7 @@ def main():
         default="./Data/PKW_Efficiency_Dataset/combined_data.npz",
         help="Path to CSV or combined_data.npz",
     )
-    parser.add_argument("--output-dir", default="./regression_runs", help="Directory to write models/metrics.")
+    parser.add_argument("--output-dir", default="./regression_runs", help="Directory to write metrics and plots.")
     parser.add_argument("--target", default="C_d", help="Target column to predict.")
     parser.add_argument(
         "--drop-cols",
@@ -565,8 +623,8 @@ def main():
         help="Number of bins to use for R^2 sweep plots.",
     )
     parser.add_argument("--train-fractions",
-        # default="0.1,0.2,0.4,0.6,0.8,1.0",
-        default="1.0",
+        default="0.1,0.2,0.4,0.6,0.8,1.0",
+        # default="1.0",
         help="Comma-separated fractions of the training set to use.",
     )
     parser.add_argument(
@@ -586,7 +644,7 @@ def main():
     parser.add_argument(
         "--shap",
         action="store_true",
-        help="Compute SHAP values and save SHAP summary plots.",
+        help="Compute SHAP values and save a labeled summary PDF grid per training fraction.",
     )
     args = parser.parse_args()
 
@@ -646,6 +704,8 @@ def main():
         X_test, y_test = select_by_indices(X, y, test_idx)
 
     os.makedirs(args.output_dir, exist_ok=True)
+    model_dir = "./saved_model"
+    os.makedirs(model_dir, exist_ok=True)
     with open(os.path.join(args.output_dir, "features.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -679,6 +739,7 @@ def main():
         rng_val.shuffle(val_order)
     metrics = []
     plots_by_fraction = {frac: [] for frac in train_fractions}
+    shap_plots_by_fraction = {frac: [] for frac in train_fractions}
     feature_plots_by_fraction = {frac: {} for frac in train_fractions}
     for name in model_names:
         print(f"Training model: {name}")
@@ -689,8 +750,13 @@ def main():
             model = builder()
             model.fit(X_train_sub, y_train_sub)
 
+            frac_tag = int(round(frac * 100))
+            model_path = os.path.join(model_dir, f"{name}_train{frac_tag:03d}.joblib")
+            joblib.dump(model, model_path)
+            print(f"Saved model: {model_path}")
+
             if args.shap:
-                shap_values, shap_X, shap_method = compute_shap_values(
+                shap_values, shap_X, _ = compute_shap_values(
                     model,
                     X_train_sub,
                     list(X.columns),
@@ -698,13 +764,8 @@ def main():
                     max_samples=args.shap_samples,
                 )
                 if shap_values is not None and shap_X is not None:
-                    save_shap_summary_plot(
-                        shap_values,
-                        shap_X,
-                        args.output_dir,
-                        name,
-                        frac,
-                        shap_method,
+                    shap_plots_by_fraction[frac].append(
+                        {"label": name, "shap_values": shap_values, "X": shap_X}
                     )
             val_preds = model.predict(X_val_sub)
             test_preds = model.predict(X_test)
@@ -733,15 +794,13 @@ def main():
                 }
             )
 
-            # frac_tag = int(round(frac * 100))
-            # model_path = os.path.join(args.output_dir, f"{name}_train{frac_tag:03d}.joblib")
-            # joblib.dump(model, model_path)
-
     metrics_df = pd.DataFrame(metrics).sort_values(by=["train_fraction", "test_mse"], ascending=[True, True])
     metrics_path = os.path.join(args.output_dir, "metrics.csv")
     metrics_df.to_csv(metrics_path, index=False)
 
     for frac in train_fractions:
+        if args.shap:
+            save_shap_summary_grid(shap_plots_by_fraction[frac], args.output_dir, frac)
         plots = plots_by_fraction.get(frac, [])
         if not plots:
             continue
@@ -751,7 +810,7 @@ def main():
         if len(plots) <= 4:
             plot_path = os.path.join(
                 args.output_dir,
-                f"test_scatter_train{frac_tag:03d}_grid.png",
+                f"test_scatter_train{frac_tag:03d}_grid.pdf",
             )
             save_scatter_grid(plots, plot_path, title)
         else:
@@ -760,7 +819,7 @@ def main():
                 grid_tag = (chunk_idx // 4) + 1
                 plot_path = os.path.join(
                     args.output_dir,
-                    f"test_scatter_train{frac_tag:03d}_grid{grid_tag:02d}.png",
+                    f"test_scatter_train{frac_tag:03d}_grid{grid_tag:02d}.pdf",
                 )
                 save_scatter_grid(chunk, plot_path, title)
 

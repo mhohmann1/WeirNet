@@ -1,2 +1,8 @@
 .vscode
 Data/*
+regression_runs/*
+saved_model/*
+check.py
+trainingsize_plot.py
+test.py
+

@@ -47,10 +47,29 @@ python trainGNN.py --model GNN --epochs 100 --num_workers 4
 python train_regressors.py
 ```
 
-Neural model checkpoints are saved under `saved_model/`. Add `--resume` to continue training, or use `--help` to see available options. The included Slurm scripts `slurm/` provide examples for training on multiple GPUs. Please adjust their cluster settings before use.
+Neural network checkpoints are saved under `saved_model/`. Add `--resume` to continue training, or use `--help` to see available options. The included Slurm scripts `slurm/` provide examples for training on multiple GPUs. Please adjust their cluster settings before use.
 
 Data preprocessing is available in [preprocessing/weirnet_preprocess.ipynb](preprocessing/weirnet_preprocess.ipynb).
 
+## Reproducing the paper figures
+
+The plotting data and pretrained regression models are included in `plot_generator/`, so no model training is required. After completing the setup above, run the following commands from the repository root to generate the figures:
+
+```bash
+# Dataset statistics
+python plot_generator/plot_datastats.py
+
+# SHAP feature importance
+python plot_generator/plot_shap.py
+
+# Predicted versus observed values
+python plot_generator/plot_scatter.py
+
+# Effect of training set size on model performance
+python plot_generator/plot_trainingsize.py
+```
+
 ## License
 
-[Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). See [LICENSE](LICENSE).
+[Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). 
+See [LICENSE](LICENSE).
